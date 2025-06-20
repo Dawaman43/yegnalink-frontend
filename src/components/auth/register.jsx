@@ -35,7 +35,7 @@ const Register = () => {
 
     setIsLoading(true);
     try {
-      const response = await axios.post(`${API_URL}:4000/user/register`, {
+      const response = await axios.post(`${API_URL}/user/register`, {
         username,
         email,
         password,
