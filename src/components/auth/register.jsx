@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 
 const Register = () => {
@@ -8,11 +8,78 @@ const Register = () => {
     password: "",
     confirmPassword: "",
   });
+  const [errors, setErrors] = useState({});
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const API_URL = import.meta.env.VITE_API_URL;
+
+  // Validation rules
+  const validateField = (name, value) => {
+    const newErrors = { ...errors };
+
+    switch (name) {
+      case "username":
+        if (!value) {
+          newErrors.username = "Username is required";
+        } else if (value.length < 3) {
+          newErrors.username = "Username must be at least 3 characters long";
+        } else if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+          newErrors.username =
+            "Username can only contain letters, numbers, and underscores";
+        } else {
+          delete newErrors.username;
+        }
+        break;
+      case "email":
+        if (!value) {
+          newErrors.email = "Email is required";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          newErrors.email = "Please enter a valid email address";
+        } else {
+          delete newErrors.email;
+        }
+        break;
+      case "password":
+        if (!value) {
+          newErrors.password = "Password is required";
+        } else if (value.length < 8) {
+          newErrors.password = "Password must be at least 8 characters long";
+        } else if (
+          !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/.test(
+            value
+          )
+        ) {
+          newErrors.password =
+            "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character";
+        } else {
+          delete newErrors.password;
+        }
+        break;
+      case "confirmPassword":
+        if (!value) {
+          newErrors.confirmPassword = "Please confirm your password";
+        } else if (value !== formData.password) {
+          newErrors.confirmPassword = "Passwords do not match";
+        } else {
+          delete newErrors.confirmPassword;
+        }
+        break;
+      default:
+        break;
+    }
+
+    return newErrors;
+  };
+
+  // Real-time validation
+  useEffect(() => {
+    const validationErrors = Object.keys(formData).reduce((acc, key) => {
+      return { ...acc, ...validateField(key, formData[key]) };
+    }, {});
+    setErrors(validationErrors);
+  }, [formData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -26,22 +93,25 @@ const Register = () => {
     e.preventDefault();
     setMessage("");
 
-    const { username, email, password, confirmPassword } = formData;
+    // Check for any validation errors
+    const validationErrors = Object.keys(formData).reduce((acc, key) => {
+      return { ...acc, ...validateField(key, formData[key]) };
+    }, {});
 
-    if (password !== confirmPassword) {
-      setMessage("Passwords do not match");
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      setMessage("Please fix the errors in the form");
       return;
     }
 
     setIsLoading(true);
     try {
       const response = await axios.post(`${API_URL}/user/register`, {
-        username,
-        email,
-        password,
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
       });
 
-      // Accept any 2xx status as success
       if (!(response.status >= 200 && response.status < 300)) {
         throw new Error(response.data.message || "Registration failed");
       }
@@ -52,14 +122,11 @@ const Register = () => {
       }, 1500);
     } catch (error) {
       console.error("Error during registration:", error);
-
-      // Show backend error message if available and not a success message
       const errorMsg =
         error.response?.data?.message &&
         !error.message.toLowerCase().includes("successful")
           ? error.response.data.message
           : error.message || "Registration failed. Please try again.";
-
       setMessage(errorMsg);
     } finally {
       setIsLoading(false);
@@ -121,10 +188,20 @@ const Register = () => {
           border-radius: 0.5rem;
           outline: none;
         }
+        .input-field.error {
+          border-color: #dc2626;
+          box-shadow: 0 0 8px rgba(220, 38, 38, 0.3);
+        }
         .input-field:focus {
           border-color: #423fae;
           box-shadow: 0 0 8px rgba(66, 63, 174, 0.3);
           transform: scale(1.01);
+        }
+        .error-message {
+          color: #dc2626;
+          font-size: 0.75rem;
+          margin-top: 0.25rem;
+          animation: slideIn 0.3s ease;
         }
         .submit-button {
           position: relative;
@@ -160,6 +237,10 @@ const Register = () => {
         }
         .submit-button:hover {
           background: #5c4fd8;
+        }
+        .submit-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
         .back-button {
           position: relative;
@@ -199,14 +280,12 @@ const Register = () => {
           }
         }
         @media (prefers-reduced-motion: reduce) {
-          .animated-bg {
-            animation: none;
-            background: #423fae;
-          }
+          .animated-bg,
           .input-field,
           .submit-button,
           .message,
-          .input-label {
+          .input-label,
+          .error-message {
             transition: none;
             animation: none;
           }
@@ -219,6 +298,7 @@ const Register = () => {
         <form
           className="w-full max-w-md flex flex-col gap-4 p-6 form-container rounded-xl sm:p-8"
           onSubmit={handleSubmit}
+          noValidate
         >
           <h2 className="text-center font-bold text-[#423fae] text-2xl sm:text-3xl">
             Register
@@ -228,38 +308,42 @@ const Register = () => {
               type="text"
               id="username"
               name="username"
-              required
               placeholder=" "
-              className="input-field"
+              className={`input-field ${errors.username ? "error" : ""}`}
               onChange={handleChange}
-              aria-describedby={
-                message && message.toLowerCase().includes("username")
-                  ? "username-error"
-                  : undefined
-              }
+              value={formData.username}
+              aria-describedby={errors.username ? "username-error" : undefined}
+              aria-invalid={!!errors.username}
             />
             <label htmlFor="username" className="input-label">
               Username
             </label>
+            {errors.username && (
+              <div id="username-error" className="error-message">
+                {errors.username}
+              </div>
+            )}
           </div>
           <div className="input-container">
             <input
               type="email"
               id="email"
               name="email"
-              required
               placeholder=" "
-              className="input-field"
+              className={`input-field ${errors.email ? "error" : ""}`}
               onChange={handleChange}
-              aria-describedby={
-                message && message.toLowerCase().includes("email")
-                  ? "email-error"
-                  : undefined
-              }
+              value={formData.email}
+              aria-describedby={errors.email ? "email-error" : undefined}
+              aria-invalid={!!errors.email}
             />
             <label htmlFor="email" className="input-label">
               Email
             </label>
+            {errors.email && (
+              <div id="email-error" className="error-message">
+                {errors.email}
+              </div>
+            )}
           </div>
           <div className="input-container">
             <div className="relative">
@@ -267,15 +351,14 @@ const Register = () => {
                 type={showPassword ? "text" : "password"}
                 id="password"
                 name="password"
-                required
                 placeholder=" "
-                className="input-field"
+                className={`input-field ${errors.password ? "error" : ""}`}
                 onChange={handleChange}
+                value={formData.password}
                 aria-describedby={
-                  message && message.toLowerCase().includes("password")
-                    ? "password-error"
-                    : undefined
+                  errors.password ? "password-error" : undefined
                 }
+                aria-invalid={!!errors.password}
               />
               <label htmlFor="password" className="input-label">
                 Password
@@ -289,6 +372,11 @@ const Register = () => {
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
+            {errors.password && (
+              <div id="password-error" className="error-message">
+                {errors.password}
+              </div>
+            )}
           </div>
           <div className="input-container">
             <div className="relative">
@@ -296,15 +384,16 @@ const Register = () => {
                 type={showConfirmPassword ? "text" : "password"}
                 id="confirmPassword"
                 name="confirmPassword"
-                required
                 placeholder=" "
-                className="input-field"
+                className={`input-field ${
+                  errors.confirmPassword ? "error" : ""
+                }`}
                 onChange={handleChange}
+                value={formData.confirmPassword}
                 aria-describedby={
-                  message && message.toLowerCase().includes("password")
-                    ? "confirm-password-error"
-                    : undefined
+                  errors.confirmPassword ? "confirm-password-error" : undefined
                 }
+                aria-invalid={!!errors.confirmPassword}
               />
               <label htmlFor="confirmPassword" className="input-label">
                 Confirm Password
@@ -322,6 +411,11 @@ const Register = () => {
                 {showConfirmPassword ? "Hide" : "Show"}
               </button>
             </div>
+            {errors.confirmPassword && (
+              <div id="confirm-password-error" className="error-message">
+                {errors.confirmPassword}
+              </div>
+            )}
           </div>
 
           {message && (
@@ -347,9 +441,11 @@ const Register = () => {
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || Object.keys(errors).length > 0}
               className={`submit-button ${
-                isLoading ? "opacity-50 cursor-not-allowed" : ""
+                isLoading || Object.keys(errors).length > 0
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
               }`}
             >
               {isLoading ? "Registering..." : "Register"}
