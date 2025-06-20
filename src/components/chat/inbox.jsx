@@ -132,7 +132,7 @@ const Inbox = () => {
     if (sidebar) {
       gsap.to(sidebar, {
         x: isSidebarOpen ? 0 : "-100%",
-        duration: 0.2, // Faster animation for opening
+        duration: 0.2,
         ease: "power2.out",
         onStart: () => {
           sidebar.style.display = isSidebarOpen ? "flex" : "none";
@@ -780,13 +780,7 @@ const Inbox = () => {
 
   // Handle sidebar toggle
   const toggleSidebar = useCallback(() => {
-    setIsSidebarOpen((prev) => {
-      const newState = !prev;
-      if (newState) {
-        sidebarRef.current.style.display = "flex"; // Ensure sidebar is visible before animating
-      }
-      return newState;
-    });
+    setIsSidebarOpen((prev) => !prev);
   }, []);
 
   // Loading Skeleton Component
@@ -811,9 +805,9 @@ const Inbox = () => {
 
   return (
     <div
-      className={`min-h-screen ${
+      className={`min-h-[100dvh] flex flex-col font-sans transition-colors duration-300 ${
         isDarkMode ? "bg-gray-900" : "bg-gray-100"
-      } flex flex-col font-sans transition-colors duration-300`}
+      }`}
       aria-live="polite"
     >
       <ToastContainer
@@ -831,7 +825,7 @@ const Inbox = () => {
       <header
         className={`flex items-center justify-between p-4 ${
           isDarkMode ? "bg-gray-800" : "bg-white"
-        } shadow-md`}
+        } shadow-md z-10`}
         role="banner"
       >
         <div className="flex items-center space-x-3">
@@ -884,12 +878,17 @@ const Inbox = () => {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col sm:flex-row mx-auto w-full max-w-7xl mt-4 gap-4 px-4">
+      <div
+        className="flex-1 flex flex-col sm:flex-row mx-auto w-full max-w-7xl mt-4 gap-4 px-4 min-h-[calc(100dvh-80px)]"
+        {...swipeHandlers}
+      >
         <div
           ref={sidebarRef}
           className={`fixed sm:static inset-y-0 left-0 z-40 w-64 flex flex-col ${
             isDarkMode ? "bg-gray-800" : "bg-white"
-          } rounded-xl sm:rounded-none shadow-md sm:shadow-none p-4 hidden sm:flex`} // Hidden on mobile by default
+          } rounded-xl sm:rounded-none shadow-md sm:shadow-none p-4 transition-transform duration-200 sm:flex ${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
           role="navigation"
           aria-label="Sidebar navigation"
         >
@@ -1027,9 +1026,8 @@ const Inbox = () => {
         <div
           className={`flex-1 rounded-xl shadow-md flex flex-col ${
             isDarkMode ? "bg-gray-800" : "bg-white"
-          } transition-colors duration-200`}
+          } transition-colors duration-200 min-h-[calc(100dvh-80px)] relative`}
           role="main"
-          {...swipeHandlers}
         >
           {!receiverId ? (
             <div className="flex-1 flex flex-col p-4">
@@ -1049,7 +1047,7 @@ const Inbox = () => {
               </div>
               <div
                 ref={userListRef}
-                className="flex-1 overflow-y-auto space-y-2"
+                className="flex-1 overflow-y-auto space-y-2 touch-auto"
               >
                 {isLoading ? (
                   <LoadingSkeleton count={5} />
@@ -1262,7 +1260,7 @@ const Inbox = () => {
 
               <div
                 ref={chatContainerRef}
-                className="flex-1 overflow-y-auto p-4 space-y-1 relative"
+                className="flex-1 overflow-y-auto p-4 space-y-1 relative touch-auto"
                 role="region"
                 aria-label="Chat messages"
               >
@@ -1322,7 +1320,7 @@ const Inbox = () => {
                             !isSameSenderAsPrevious(msg, arr[index - 1])
                               ? "mt-4"
                               : "mt-1"
-                          } animate-message-in`}
+                          }`}
                         >
                           {!isSameSenderAsPrevious(msg, arr[index - 1]) &&
                             msg.senderId !== userId && (
@@ -1472,76 +1470,79 @@ const Inbox = () => {
               </div>
 
               <div
-                className={`flex items-center p-3 border-t ${
+                className={`p-3 border-t ${
                   isDarkMode ? "border-gray-700" : "border-gray-200"
-                }`}
+                } fixed bottom-0 left-0 right-0 bg-inherit sm:static sm:bg-transparent z-20`}
               >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  onChange={(e) => setFile(e.target.files[0])}
-                />
-                <button
-                  onClick={() => fileInputRef.current.click()}
-                  className={`p-2 rounded-full ${
-                    isDarkMode
-                      ? "bg-gray-700 hover:bg-gray-600 text-white"
-                      : "bg-gray-200 hover:bg-gray-300 text-gray-800"
-                  } focus:outline-none focus:ring-2 focus:ring-indigo-500`}
-                  aria-label="Add file"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
+                <div className="flex items-center max-w-7xl mx-auto">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={(e) => setFile(e.target.files[0])}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current.click()}
+                    className={`p-2 rounded-full ${
+                      isDarkMode
+                        ? "bg-gray-700 hover:bg-gray-600 text-white"
+                        : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                    } focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+                    aria-label="Add file"
                   >
-                    <path d="M5 10h4V6h4v4h4v2h-4v4H9v-4H5v-2z" />
-                  </svg>
-                </button>
-                <input
-                  type="text"
-                  value={message}
-                  onChange={handleTyping}
-                  placeholder="Type a message..."
-                  className={`flex-1 mx-2 rounded-full px-4 py-2 border focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm ${
-                    isDarkMode
-                      ? "bg-gray-700 text-white border-gray-600 placeholder-gray-400"
-                      : "bg-gray-100 text-gray-900 border-gray-300 placeholder-gray-600"
-                  } transition-colors duration-300`}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleSend();
-                    }
-                  }}
-                  aria-label="Type a message"
-                />
-                <button
-                  onClick={handleSend}
-                  className={`p-2 rounded-full ${
-                    message.trim() || file
-                      ? isDarkMode
-                        ? "bg-blue-600 hover:bg-blue-700 text-white"
-                        : "bg-blue-500 hover:bg-blue-600 text-white"
-                      : "bg-gray-400 text-gray-800 cursor-not-allowed"
-                  } transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
-                  disabled={!message.trim() && !file}
-                  aria-label="Send message"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                    <svg
+                      className="w-5 h-5"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M5 10h4V6h4v4h4v2h-4v4H9v-4H5v-2z" />
+                    </svg>
+                  </button>
+                  <input
+                    type="text"
+                    value={message}
+                    onChange={handleTyping}
+                    placeholder="Type a message..."
+                    className={`flex-1 mx-2 rounded-full px-4 py-2 border focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm ${
+                      isDarkMode
+                        ? "bg-gray-700 text-white border-gray-600 placeholder-gray-400"
+                        : "bg-gray-100 text-gray-900 border-gray-300 placeholder-gray-600"
+                    } transition-colors duration-300`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    aria-label="Type a message"
+                  />
+                  <button
+                    onClick={handleSend}
+                    className={`p-2 rounded-full ${
+                      message.trim() || file
+                        ? isDarkMode
+                          ? "bg-blue-600 hover:bg-blue-700 text-white"
+                          : "bg-blue-500 hover:bg-blue-600 text-white"
+                        : "bg-gray-400 text-gray-800 cursor-not-allowed"
+                    } transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+                    disabled={!message.trim() && !file}
+                    aria-label="Send message"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 19l9 2-9-18-9 18 9-2m0 0v-8"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 19l9 2-9-18-9 18 9-2m0 0v-8"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1652,25 +1653,46 @@ const Inbox = () => {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes message-in {
-          from { opacity: 0; transform: translateY(5px); }
-          to { opacity: 1; transform: translateY(0); }
+        @keyframes pulse {
+          0% { opacity: 0.6; }
+          50% { opacity: 1; }
+          100% { opacity: 0.6; }
         }
         @keyframes bounce {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-2px); }
         }
         .animate-slide-in { animation: slide-in 0.3s ease-out; }
-        .animate-message-in { animation: message-in 0.5s ease-out; }
-        .animate-bounce { animation: bounce 0.6s ease-in-out infinite; }
         .animate-pulse { animation: pulse 1.5s ease-in-out infinite; }
-        @keyframes pulse {
-          0% { opacity: 0.6; }
-          50% { opacity: 1; }
-          100% { opacity: 0.6; }
+        .animate-bounce { animation: bounce 0.6s ease-in-out infinite; }
+        .touch-auto { touch-action: auto; }
+        html, body {
+          height: 100%;
+          margin: 0;
+          overscroll-behavior: none;
         }
         @media (max-width: 640px) {
-          .chat-container { width: 100%; }
+          .min-h-[100dvh] {
+            min-height: 100dvh;
+          }
+          .chat-container {
+            width: 100%;
+            max-height: calc(100dvh - 80px);
+          }
+          .fixed.bottom-0 {
+            background: inherit;
+            z-index: 20;
+            padding-bottom: env(safe-area-inset-bottom);
+          }
+          input[type="text"] {
+            -webkit-user-select: auto;
+            user-select: auto;
+            -webkit-appearance: none;
+            appearance: none;
+          }
+          .overflow-y-auto {
+            -webkit-overflow-scrolling: touch;
+          }
         }
       `}</style>
     </div>
