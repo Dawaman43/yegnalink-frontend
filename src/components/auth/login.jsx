@@ -1,78 +1,104 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+
 const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
+  const [errors, setErrors] = useState({});
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const API_URL = import.meta.env.VITE_API_URL;
 
+  // Validate form inputs
+  const validateForm = () => {
+    const newErrors = {};
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters long";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   // Update form data on input change
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear error for this field when user types
+    setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
-    setIsLoading(true);
 
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsLoading(true);
     try {
       const response = await axios.post(`${API_URL}/user/login`, formData);
 
-      if (response.status !== 200) {
+      if (!(response.status >= 200 && response.status < 300)) {
         throw new Error(response.data.message || "Login failed");
       }
 
       localStorage.setItem("token", response.data.generateToken);
 
       setMessage("Login successful! Redirecting...");
-      // Redirect after successful login
-      window.location.href = "/chat/home";
+      setTimeout(() => {
+        window.location.href = "/chat/home";
+      }, 1500);
     } catch (error) {
       console.error("Login error:", error);
-      setMessage(
-        error.response?.data?.message || "Login failed. Please try again."
-      );
+      const errorMsg =
+        error.response?.data?.message &&
+        !error.message.toLowerCase().includes("successful")
+          ? error.response.data.message
+          : error.message || "Login failed. Please try again.";
+      setMessage(errorMsg);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Check for existing token on mount
   useEffect(() => {
-    console.log("Login component mounted");
-
     const token = localStorage.getItem("token");
-    console.log("Token from localStorage:", token);
-
     if (token) {
       import("jwt-decode")
         .then((module) => {
-          const decoded = module.default(token);
-          console.log("Decoded JWT full payload:", decoded);
-          if (decoded._id) {
-            localStorage.setItem("userId", decoded._id);
-          } else {
-            console.log("User ID not found in token.");
+          try {
+            const decoded = module.default(token);
+            if (decoded._id) {
+              localStorage.setItem("userId", decoded._id);
+              window.location.href = "/chat/home";
+            } else {
+              throw new Error("Invalid token");
+            }
+          } catch (err) {
+            console.error("Token validation error:", err);
             localStorage.removeItem("token");
             localStorage.removeItem("userId");
-            alert("User ID not found. Please log in again.");
-            window.location.href = "/login";
+            setMessage("Invalid session. Please log in again.");
           }
         })
         .catch((err) => {
-          console.error("Error importing jwt-decode or decoding token:", err);
+          console.error("Error importing jwt-decode:", err);
+          localStorage.removeItem("token");
+          localStorage.removeItem("userId");
+          setMessage("Session error. Please log in again.");
         });
-    } else {
-      console.log("No token found in localStorage.");
     }
   }, []);
-
-  useEffect(() => {
-    console.log("test");
-  });
 
   return (
     <>
@@ -96,15 +122,13 @@ const Login = () => {
           animation: gradientShift 15s ease infinite;
         }
         .form-container {
-          background: #ffffff;
+          background: rgba(255, 255, 255, 0.95);
           box-shadow: 0 10px 20px rgba(66, 63, 174, 0.2);
           border-radius: 1rem;
           padding: 2rem;
           max-width: 400px;
           width: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
+          backdrop-filter: blur(10px);
         }
         .input-container {
           position: relative;
@@ -117,15 +141,18 @@ const Login = () => {
           color: #6b7280;
           transition: all 0.3s ease;
           pointer-events: none;
-          background: white;
+          font-size: 0.9rem;
+          background: transparent;
           padding: 0 0.25rem;
         }
         .input-field:focus + .input-label,
         .input-field:not(:placeholder-shown) + .input-label {
           top: -0.75rem;
           left: 0.75rem;
-          font-size: 0.75rem;
+          font-size: 0.7rem;
           color: #423fae;
+          background: #ffffff;
+          padding: 0 0.25rem;
         }
         .input-field {
           border: 2px solid #e5e7eb;
@@ -134,23 +161,27 @@ const Login = () => {
           width: 100%;
           padding: 0.75rem 1rem;
           transition: all 0.3s ease;
+          font-size: 0.9rem;
+          outline: none;
         }
         .input-field:focus {
           border-color: #423fae;
           box-shadow: 0 0 8px rgba(66, 63, 174, 0.3);
           transform: scale(1.01);
-          outline: none;
+        }
+        .input-field-error {
+          border-color: #ef4444;
         }
         .submit-button {
           position: relative;
           background: #423fae;
           color: white;
-          font-weight: 700;
-          padding: 0.75rem 1.5rem;
-          border-radius: 0.75rem;
+          font-weight: 600;
+          padding: 0.75rem 2rem;
+          border-radius: 0.5rem;
           cursor: pointer;
           overflow: hidden;
-          transition: background-color 0.3s ease;
+          transition: all 0.3s ease;
           border: none;
         }
         .submit-button::before {
@@ -168,6 +199,7 @@ const Login = () => {
         }
         .submit-button:hover {
           background: #5c4fd8;
+          transform: translateY(-2px);
         }
         .submit-button:disabled {
           opacity: 0.5;
@@ -177,11 +209,12 @@ const Login = () => {
           background: none;
           border: none;
           color: #423fae;
-          font-weight: 600;
+          font-weight: 500;
           cursor: pointer;
           position: relative;
-          padding: 0;
+          padding: 0.5rem 1rem;
           font-size: 0.9rem;
+          transition: all 0.3s ease;
         }
         .back-button::after {
           content: '';
@@ -201,6 +234,11 @@ const Login = () => {
           font-size: 0.9rem;
           word-break: break-word;
         }
+        .error-message {
+          color: #ef4444;
+          font-size: 0.75rem;
+          margin-top: 0.25rem;
+        }
         @media (max-width: 640px) {
           .form-container {
             padding: 1.5rem;
@@ -213,14 +251,7 @@ const Login = () => {
           }
         }
         @media (prefers-reduced-motion: reduce) {
-          .animated-bg {
-            animation: none;
-            background: #423fae;
-          }
-          .input-field,
-          .submit-button,
-          .message,
-          .input-label {
+          .animated-bg, .input-field, .submit-button, .message, .input-label, .back-button {
             transition: none;
             animation: none;
           }
@@ -231,95 +262,109 @@ const Login = () => {
       `}</style>
 
       <div className="min-h-screen animated-bg flex items-center justify-center p-4">
-        <form className="form-container" onSubmit={handleSubmit} noValidate>
-          <h2 className="text-center font-bold text-[#423fae] text-2xl sm:text-3xl">
-            Login
+        <div className="form-container">
+          <h2 className="text-center font-bold text-[#423fae] text-2xl sm:text-3xl mb-6">
+            Sign In
           </h2>
-
-          <div className="input-container">
-            <input
-              type="email"
-              id="email"
-              name="email"
-              placeholder=" "
-              required
-              className="input-field"
-              value={formData.email}
-              onChange={handleChange}
-              aria-describedby={
-                message && message.toLowerCase().includes("email")
-                  ? "email-error"
-                  : undefined
-              }
-              autoComplete="email"
-            />
-            <label htmlFor="email" className="input-label">
-              Email
-            </label>
-          </div>
-
-          <div className="input-container">
-            <div className="relative">
+          <form
+            onSubmit={handleSubmit}
+            noValidate
+            className="flex flex-col gap-4"
+          >
+            <div className="input-container">
               <input
-                type={showPassword ? "text" : "password"}
-                id="password"
-                name="password"
+                type="email"
+                id="email"
+                name="email"
                 placeholder=" "
                 required
-                className="input-field"
-                value={formData.password}
+                className={`input-field ${
+                  errors.email ? "input-field-error" : ""
+                }`}
+                value={formData.email}
                 onChange={handleChange}
-                aria-describedby={
-                  message && message.toLowerCase().includes("password")
-                    ? "password-error"
-                    : undefined
-                }
-                autoComplete="current-password"
+                aria-describedby={errors.email ? "email-error" : undefined}
+                autoComplete="email"
+                autoFocus
               />
-              <label htmlFor="password" className="input-label">
-                Password
+              <label htmlFor="email" className="input-label">
+                Email
               </label>
+              {errors.email && (
+                <div id="email-error" className="error-message">
+                  {errors.email}
+                </div>
+              )}
+            </div>
+
+            <div className="input-container">
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  name="password"
+                  placeholder=" "
+                  required
+                  className={`input-field ${
+                    errors.password ? "input-field-error" : ""
+                  }`}
+                  value={formData.password}
+                  onChange={handleChange}
+                  aria-describedby={
+                    errors.password ? "password-error" : undefined
+                  }
+                  autoComplete="current-password"
+                />
+                <label htmlFor="password" className="input-label">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((show) => !show)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#423fae] hover:text-[#5c4fd8] text-sm"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+              {errors.password && (
+                <div id="password-error" className="error-message">
+                  {errors.password}
+                </div>
+              )}
+            </div>
+
+            {message && (
+              <div
+                id="form-error"
+                className={`message ${
+                  message.toLowerCase().includes("successful")
+                    ? "text-green-600"
+                    : "text-red-600"
+                } mt-2`}
+              >
+                {message}
+              </div>
+            )}
+
+            <div className="flex justify-between mt-6 gap-4">
               <button
                 type="button"
-                onClick={() => setShowPassword((show) => !show)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#423fae] hover:text-[#5c4fd8] text-sm"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="back-button"
+                onClick={() => (window.location.href = "/register")}
               >
-                {showPassword ? "Hide" : "Show"}
+                Create Account
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="submit-button"
+              >
+                {isLoading ? "Signing in..." : "Sign In"}
               </button>
             </div>
-          </div>
-
-          {message && (
-            <div
-              id="form-error"
-              className={`message ${
-                message.toLowerCase().includes("successful")
-                  ? "text-green-600"
-                  : "text-red-600"
-              } mt-2`}
-            >
-              {message}
-            </div>
-          )}
-
-          <div className="flex justify-between mt-4">
-            <button
-              type="button"
-              className="back-button"
-              onClick={() => (window.location.href = "/register")}
-            >
-              Back to Register
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="submit-button"
-            >
-              {isLoading ? "Logging in..." : "Login"}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </>
   );
