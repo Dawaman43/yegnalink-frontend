@@ -356,6 +356,13 @@ const Login = () => {
                 Create Account
               </button>
               <button
+                type="button"
+                className="back-button"
+                onClick={() => (window.location.href = "/")}
+              >
+                Go to home
+              </button>
+              <button
                 type="submit"
                 disabled={isLoading}
                 className="submit-button"
