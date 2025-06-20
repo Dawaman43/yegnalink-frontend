@@ -440,6 +440,14 @@ const Register = () => {
                 {isLoading ? "Registering..." : "Create Account"}
               </button>
             </div>
+
+            <button
+              type="button"
+              className="back-button"
+              onClick={() => (window.location.href = "/")}
+            >
+              Go to home
+            </button>
           </form>
         </div>
       </div>
